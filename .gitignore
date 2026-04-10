@@ -181,7 +181,7 @@ cython_debug/
 .cursorindexingignore
 
 # Project specific
-auth/*.json
+auth/*
 workflows/*
 output/*
 *.log

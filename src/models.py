@@ -117,13 +117,14 @@ class Workflow:
     name: str
     steps: list[Step]
     output: Optional[Dict[str, Any]] = None
+    auth: Optional[str] = None
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Workflow":
         """Create a Workflow from a dictionary
         
         Args:
-            data: Dictionary with 'name', 'steps', and optional 'output' keys
+            data: Dictionary with 'name', 'steps', and optional 'output'/'auth' keys
         
         Returns:
             Workflow instance
@@ -146,8 +147,9 @@ class Workflow:
         steps = [Step.from_dict(step_dict) for step_dict in steps_data]
         
         output = data.get("output")
+        auth = data.get("auth")
         
-        return cls(name=name, steps=steps, output=output)
+        return cls(name=name, steps=steps, output=output, auth=auth)
 
     def validate(self) -> None:
         """ Validate the workflow structure and steps

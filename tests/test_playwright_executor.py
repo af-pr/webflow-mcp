@@ -18,11 +18,9 @@ class TestPlaywrightExecutorInit:
         executor = PlaywrightExecutor()
         assert executor.headless is True
         assert executor.timeout == 30000
-        assert executor.auth_context_path is None
 
     def test_custom_config(self):
-        executor = PlaywrightExecutor(auth_context_path="auth.json", headless=False, timeout=5000)
-        assert executor.auth_context_path == "auth.json"
+        executor = PlaywrightExecutor(headless=False, timeout=5000)
         assert executor.headless is False
         assert executor.timeout == 5000
 
@@ -246,6 +244,11 @@ class TestPlaywrightExecutorExecuteWorkflow:
     def setup_method(self):
         self.executor = PlaywrightExecutor()
         self.executor.page = MagicMock()
+        # Mock browser so _create_context doesn't require a real browser
+        mock_context = MagicMock()
+        mock_context.new_page.return_value = self.executor.page
+        self.executor.browser = MagicMock()
+        self.executor.browser.new_context.return_value = mock_context
 
     def test_returns_one_result_per_step(self):
         workflow = Workflow(
@@ -315,5 +318,66 @@ class TestPlaywrightExecutorExecuteWorkflow:
 class TestPlaywrightExecutorClose:
     def test_close_with_no_resources_does_not_raise(self):
         executor = PlaywrightExecutor()
-        # All resources (page, context, browser, playwright) are None by default
         executor.close()  # must not raise
+
+
+class TestPlaywrightExecutorAuth:
+    """Tests for _create_context auth loading logic."""
+
+    def _make_executor_with_mock_browser(self):
+        executor = PlaywrightExecutor()
+        mock_context = MagicMock()
+        mock_context.new_page.return_value = MagicMock()
+        executor.browser = MagicMock()
+        executor.browser.new_context.return_value = mock_context
+        return executor
+
+    def _make_workflow(self, auth=None):
+        return Workflow(
+            name="test",
+            steps=[Step(ActionType.GOTO, {"url": "https://example.com"})],
+            auth=auth,
+        )
+
+    def test_no_auth_creates_context_without_storage_state(self):
+        executor = self._make_executor_with_mock_browser()
+        
+        executor._create_context(self._make_workflow(auth=None))
+        
+        executor.browser.new_context.assert_called_once_with()
+
+    def test_auth_loads_storage_state(self, tmp_path):
+        executor = self._make_executor_with_mock_browser()
+        auth_file = tmp_path / "mysite.json"
+        auth_file.write_text('{"cookies": [], "origins": []}')
+        import src.playwright_executor as mod
+        original = mod.AUTH_DIR
+        mod.AUTH_DIR = tmp_path
+        
+        try:
+            executor._create_context(self._make_workflow(auth="mysite"))
+            
+            executor.browser.new_context.assert_called_once_with(
+                storage_state=str(auth_file)
+            )
+        finally:
+            mod.AUTH_DIR = original
+
+    def test_auth_raises_file_not_found_when_missing(self):
+        executor = self._make_executor_with_mock_browser()
+        
+        with pytest.raises(FileNotFoundError, match="nonexistent"):
+            executor._create_context(self._make_workflow(auth="nonexistent"))
+
+    def test_auth_error_message_includes_save_auth_hint(self):
+        executor = self._make_executor_with_mock_browser()
+        
+        with pytest.raises(FileNotFoundError, match="save_auth.py"):
+            executor._create_context(self._make_workflow(auth="nonexistent"))
+
+    def test_execute_workflow_raises_file_not_found_for_missing_auth(self):
+        executor = self._make_executor_with_mock_browser()
+        workflow = self._make_workflow(auth="missing")
+        
+        with pytest.raises(FileNotFoundError):
+            executor.execute_workflow(workflow)

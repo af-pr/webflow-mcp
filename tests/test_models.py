@@ -113,6 +113,23 @@ class TestWorkflow:
         }
         assert Workflow.from_dict(data).output == {"type": "file", "path": "./out.txt"}
 
+    def test_from_dict_with_auth(self):
+        data = {
+            "name": "test",
+            "steps": [{"action": "goto", "url": "https://example.com"}],
+            "auth": "notebooklm",
+        }
+        
+        assert Workflow.from_dict(data).auth == "notebooklm"
+
+    def test_from_dict_without_auth_defaults_to_none(self):
+        data = {
+            "name": "test",
+            "steps": [{"action": "goto", "url": "https://example.com"}],
+        }
+        
+        assert Workflow.from_dict(data).auth is None
+
     @pytest.mark.parametrize("data, match", [
         ({"steps": [{"action": "goto", "url": "https://example.com"}]}, "name"),
         ({"name": "test"}, "steps"),

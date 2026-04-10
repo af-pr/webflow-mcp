@@ -6,18 +6,19 @@ using Playwright and handling step execution, validation, and logging.
 """
 
 import logging
-import os
+from pathlib import Path
 from typing import Optional, List, Dict, Any
 from playwright.sync_api import sync_playwright, Page, Browser, BrowserContext
 
 from src.models import Step, StepResult, ActionType, Workflow
+
+AUTH_DIR = Path(__file__).parent.parent / "auth"
 
 class PlaywrightExecutor:
     """Execute web automation workflows using Playwright"""
     
     def __init__(
         self,
-        auth_context_path: Optional[str] = None,
         headless: bool = True,
         timeout: int = 30000
     ):
@@ -25,7 +26,6 @@ class PlaywrightExecutor:
         Initialize PlaywrightExecutor
         
         Args:
-            auth_context_path: Path to auth.json for saved browser context
             headless: Run browser in headless mode (no GUI)
             timeout: Timeout in milliseconds for page operations
         """
@@ -33,7 +33,6 @@ class PlaywrightExecutor:
         self.browser: Optional[Browser] = None
         self.context: Optional[BrowserContext] = None
         self.page: Optional[Page] = None
-        self.auth_context_path = auth_context_path
         self.headless = headless
         self.timeout = timeout
         self.playwright = None
@@ -55,7 +54,7 @@ class PlaywrightExecutor:
     
     def __enter__(self) -> "PlaywrightExecutor":
         """Context manager entry"""
-        self._init_playwright()
+        self._start_browser()
         return self
     
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -63,31 +62,42 @@ class PlaywrightExecutor:
         self.close()
         return False
     
-    def _init_playwright(self) -> None:
-        """Initialize Playwright browser and context"""
-        self.logger.debug("Initializing Playwright...")
-        
+    def _start_browser(self) -> None:
+        """Start Playwright and launch browser"""
+        self.logger.debug("Starting browser...")
         try:
             self.playwright = sync_playwright().start()
             self.browser = self.playwright.chromium.launch(headless=self.headless)
-            
-            # Load saved auth context if available
-            if self.auth_context_path and os.path.exists(self.auth_context_path):
-                self.logger.info(f"Loading auth context from {self.auth_context_path}")
-                self.context = self.browser.new_context(
-                    storage_state=self.auth_context_path
-                )
-            else:
-                self.logger.debug("Creating new browser context")
-                self.context = self.browser.new_context()
-            
-            self.page = self.context.new_page()
-            self.page.set_default_timeout(self.timeout)
-            self.logger.info("Playwright initialized successfully")
-        
+            self.logger.info("Browser started successfully")
         except Exception as e:
-            self.logger.error(f"Failed to initialize Playwright: {e}")
+            self.logger.error(f"Failed to start browser: {e}")
             raise
+
+    def _create_context(self, workflow: Workflow) -> None:
+        """Create browser context, loading auth session if specified in the workflow.
+
+        Args:
+            workflow: Workflow object — if workflow.auth is set, loads auth/{name}.json
+
+        Raises:
+            FileNotFoundError: If workflow.auth is set but the auth file does not exist
+        """
+        if workflow.auth:
+            auth_path = AUTH_DIR / f"{workflow.auth}.json"
+            if not auth_path.exists():
+                raise FileNotFoundError(
+                    f"Auth file not found: {auth_path}. "
+                    f"Run 'python scripts/save_auth.py --name {workflow.auth} --url <url>' to create it."
+                )
+            self.logger.info(f"Loading auth session from {auth_path}")
+            self.context = self.browser.new_context(storage_state=str(auth_path))
+        else:
+            self.logger.debug("Creating new browser context without auth")
+            self.context = self.browser.new_context()
+
+        self.page = self.context.new_page()
+        self.page.set_default_timeout(self.timeout)
+        self.logger.info("Browser context created successfully")
     
     def close(self) -> None:
         """Close browser and cleanup resources"""
@@ -120,7 +130,11 @@ class PlaywrightExecutor:
         
         Returns:
             List of StepResult objects
+
+        Raises:
+            FileNotFoundError: If workflow.auth is set but the auth file does not exist
         """
+        self._create_context(workflow)
         self.logger.info(f"Executing workflow '{workflow.name}' with {len(workflow.steps)} steps")
         results = []
         
@@ -301,32 +315,3 @@ class PlaywrightExecutor:
             error_msg = f"Press key failed: {e}"
             self.logger.error(error_msg)
             return StepResult(success=False, error=error_msg)  
-
-
-# ============================================================================
-# Convenience functions
-# ============================================================================
-
-def execute_workflow(
-    steps: List[Step],
-    auth_context_path: Optional[str] = None,
-    headless: bool = True
-) -> List[StepResult]:
-    """
-    Execute a workflow using PlaywrightExecutor
-    
-    This is a convenience function that handles context manager automatically.
-    
-    Args:
-        steps: List of Step objects to execute
-        auth_context_path: Path to auth.json for saved browser context
-        headless: Run browser in headless mode
-    
-    Returns:
-        List of StepResult objects
-    """
-    with PlaywrightExecutor(
-        auth_context_path=auth_context_path,
-        headless=headless
-    ) as executor:
-        return executor.execute_workflow(steps)

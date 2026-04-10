@@ -18,10 +18,12 @@ webflow-mcp/
 │   ├── placeholder_resolver.py # Template substitution ({{placeholder}})
 │   ├── workflow_loader.py      # YAML workflow loading
 │   └── playwright_executor.py  # Browser automation with Playwright
+├── scripts/
+│   └── save_auth.py            # Save browser session for authenticated workflows
 ├── workflows/                  # Workflow YAML files
 ├── tests/                      # Unit and integration tests
 ├── output/                     # Results and logs output
-├── auth/                       # Browser authentication contexts (auth.json)
+├── auth/                       # Saved browser sessions (auth/{name}.json)
 ├── config/                     # Configuration files
 ├── README.md                   # This file
 ├── pyproject.toml              # Project metadata and dependencies
@@ -52,6 +54,8 @@ webflow-mcp/
   - Context manager for safe resource cleanup
 
 - **main.py**: MCP Server — exposes `run_workflow` tool via the Model Context Protocol
+
+- **scripts/save_auth.py**: Session helper — opens a visible browser for manual login and saves the resulting session to `auth/{name}.json`
 
 ## Installation
 
@@ -87,6 +91,7 @@ Example workflow YAML file (`workflows/example.yaml`):
 
 ```yaml
 name: example_workflow
+auth: example_auth # only needed for workflows that require authentication — see "Authentication" section below
 steps:
   - action: goto
     url: "https://example.com"
@@ -151,13 +156,13 @@ Claude will call `run_workflow(name: "search_site", params: {"query": "webflow a
 - ✅ Comprehensive logging
 - ✅ Error handling and reporting
 - ✅ Extensible action handler pattern
+- ✅ Session-based authentication (`auth` field in workflow YAML + `save_auth.py`)
 
 ### Future Enhancements
 - 🔄 Output file writing
 - 🔄 Security measures
 - 🔄 Workflow composition (nested workflows)
 - 🔄 Additional action types
-- 🔄 Advanced authentication options
 - 🔄 CI/CD integration examples
 
 ## Development
@@ -195,12 +200,78 @@ pylint src/
 
 ## Legal Notice
 
-⚠️ Automating certain web services may violate their Terms of Service.  Examples include:
-- Services requiring explicit API authorization
-- Services with automated access restrictions
-- Third-party account automation
+⚠️ **Automating web services involves important legal considerations.** You are responsible for ensuring your use complies with applicable Terms of Service and laws.
 
-**Use this tool responsibly.** You are responsible for ensuring your use complies with applicable Terms of Service and laws.
+### Web Automation and Terms of Service
+
+Many web services prohibit automated access in their Terms of Service (ToS). Examples include:
+- Services requiring explicit API authorization
+- Services with explicit automated access restrictions  
+- Third-party account automation or scraping
+- Unauthorized access to accounts or systems
+
+**Always review the Terms of Service** of any third-party service before automating access to it.
+
+### Third-Party Services and Legal Compliance
+
+When using webflow-mcp to automate web applications:
+
+- **You are solely responsible** for verifying that your usage complies with the service's ToS
+- **Unauthorized access** to accounts, systems, or data may violate computer fraud laws:
+  - US: Computer Fraud and Abuse Act (CFAA)
+  - EU: Computer Misuse Directive and national laws
+  - Other jurisdictions have similar regulations
+- **At-scale automation** (mass scraping, distributed attacks) may be illegal regardless of ToS
+
+### Permitted Uses
+
+Use webflow-mcp responsibly for:
+- Automating your own accounts and personal data
+- Services you own or operate
+- Internal, development, or testing purposes with explicit authorization
+- Services with explicit automation policies (e.g., those providing APIs)
+
+### Sessions and Credentials
+
+- Auth sessions saved by `save_auth.py` contain browser credentials (cookies, tokens)
+- **Never commit auth files to version control** — add `auth/` to `.gitignore`
+- Treat saved sessions as you would treat passwords and API keys
+- Sessions are site-specific and will expire according to the service's session policy
+
+## Authentication
+
+Some workflows require an authenticated browser session (e.g. services that require login). webflow-mcp handles this via saved sessions — you log in once manually, and the session is reused for subsequent automated runs.
+
+### Saving a Session
+
+Run the following command to open a visible browser, log in manually, and save the session:
+
+```bash
+python scripts/save_auth.py --url https://example.com --name mysite
+```
+
+- `--url`: The page to navigate to for login
+- `--name`: Name for the saved session (e.g. `mysite` → saved as `auth/mysite.json`)
+
+Once the browser opens, complete the login process (including any 2FA or OAuth steps). When finished, press Enter in the terminal. The session is saved automatically.
+
+> **Note:** Sessions saved this way include cookies and browser storage (localStorage, sessionStorage). They are site-specific and will expire when the site's session expires — typically days to weeks. Re-run `save_auth.py` when a session expires.
+
+### Using a Session in a Workflow
+
+Reference the session name in your workflow YAML via the `auth` field:
+
+```yaml
+name: my_workflow
+auth: mysite  # loads auth/mysite.json
+steps:
+  - action: goto
+    url: "https://example.com/dashboard"
+```
+
+If the `auth` field is omitted, the workflow runs without authentication. If `auth` is set but the corresponding file does not exist, the workflow will fail with a `FileNotFoundError` — run `save_auth.py` first.
+
+> ⚠️ **Security:** Auth files contain sensitive session data (cookies). Do not commit `auth/` to version control. This folder is listed in `.gitignore`.
 
 ## Known Limitations
 
@@ -234,4 +305,4 @@ Contributions welcome! Please ensure code follows project standards:
 
 ## License
 
-MIT License - See [LICENSE](LICENSE) file for details.
+MIT License - See [LICENSE] file for details.
