@@ -44,7 +44,11 @@ class PlaywrightExecutor:
             ActionType.CLICK: self._handle_click,
             ActionType.SELECT: self._handle_select,
             ActionType.WAIT_FOR: self._handle_wait_for,
+            ActionType.WAIT_FOR_HIDDEN: self._handle_wait_for_hidden,
+            ActionType.WAIT_FOR_LOAD_STATE: self._handle_wait_for_load_state,
+            ActionType.WAIT_FOR_RESPONSE: self._handle_wait_for_response,
             ActionType.EXTRACT_TEXT: self._handle_extract_text,
+            ActionType.EXTRACT_INNER_TEXT: self._handle_extract_inner_text,
             ActionType.EXTRACT_HTML: self._handle_extract_html,
             ActionType.SCREENSHOT: self._handle_screenshot,
             ActionType.PRESS_KEY: self._handle_press_key,
@@ -250,9 +254,87 @@ class PlaywrightExecutor:
             error_msg = f"Wait failed: {e}"
             self.logger.error(error_msg)
             return StepResult(success=False, error=error_msg)
+
+    def _handle_wait_for_hidden(self, step: Step) -> StepResult:
+        """Wait for an element to disappear (become hidden or detached from the DOM).
+
+        Useful for waiting on loading spinners or progress indicators to finish
+        before extracting content. Uses Playwright's state='hidden' which covers
+        both elements that become invisible (display:none) and those removed from DOM.
+        """
+        try:
+            selector = step.params["selector"]
+
+            self.logger.debug(f"Waiting for '{selector}' to be hidden")
+            self.page.wait_for_selector(selector, state="hidden")
+            self.logger.info(f"Element '{selector}' is now hidden")
+
+            return StepResult(success=True, data={"selector": selector})
+
+        except Exception as e:
+            error_msg = f"Wait for hidden failed: {e}"
+            self.logger.error(error_msg)
+            return StepResult(success=False, error=error_msg)
+
+    def _handle_wait_for_load_state(self, step: Step) -> StepResult:
+        """Wait for the page to reach a specific load state.
+
+        States:
+        - 'domcontentloaded': DOM fully parsed (fastest, for static pages)
+        - 'load': window.onload event has fired
+        - 'networkidle': no pending network requests for 500ms (robust for SPAs like Angular/React)
+
+        Useful after goto() to ensure the framework (Angular, React, etc.) has finished
+        initializing before interacting with dynamic elements.
+        """
+        try:
+            state = step.params["state"]
+
+            self.logger.debug(f"Waiting for page to reach '{state}' state")
+            self.page.wait_for_load_state(state)
+            self.logger.info(f"Page reached '{state}' state")
+
+            return StepResult(success=True, data={"state": state})
+
+        except Exception as e:
+            error_msg = f"Wait for load state failed: {e}"
+            self.logger.error(error_msg)
+            return StepResult(success=False, error=error_msg)
+
+    def _handle_wait_for_response(self, step: Step) -> StepResult:
+        """Wait for a network response matching a URL pattern.
+
+        Useful for waiting on API responses before extracting data.
+        Patterns can be glob (e.g., '**/api/generate**') or regex.
+        
+        Parameters:
+        - url_pattern: URL pattern to match (glob or regex)
+        - timeout (optional): Max milliseconds to wait (default: 30000)
+
+        Note: Useful for confirming network activity, but individual network
+        responses in streaming don't guarantee complete content.
+        """
+        try:
+            url_pattern = step.params["url_pattern"]
+            timeout = step.params.get("timeout", 30000)
+
+            self.logger.debug(f"Waiting for response matching '{url_pattern}'")
+            response = self.page.wait_for_response(url_pattern, timeout=timeout)
+            self.logger.info(f"Received response with status {response.status} for '{url_pattern}'")
+
+            return StepResult(success=True, data={
+                "url_pattern": url_pattern,
+                "status": response.status,
+                "url": response.url
+            })
+
+        except Exception as e:
+            error_msg = f"Wait for response failed: {e}"
+            self.logger.error(error_msg)
+            return StepResult(success=False, error=error_msg)
     
     def _handle_extract_text(self, step: Step) -> StepResult:
-        """Extract text from an element"""
+        """Extract raw text from an element (no whitespace or layout preservation)"""
         try:
             selector = step.params["selector"]
             
@@ -264,6 +346,28 @@ class PlaywrightExecutor:
         
         except Exception as e:
             error_msg = f"Extract text failed: {e}"
+            self.logger.error(error_msg)
+            return StepResult(success=False, error=error_msg)
+
+    def _handle_extract_inner_text(self, step: Step) -> StepResult:
+        """Extract formatted text from an element, preserving layout (newlines, list structure).
+
+        Uses Playwright's inner_text() which respects CSS rendering:
+        - Block elements (<div>, <p>, <li>) produce newlines
+        - Hidden elements are excluded
+        - More readable output than text_content() for complex HTML
+        """
+        try:
+            selector = step.params["selector"]
+
+            self.logger.debug(f"Extracting inner text from '{selector}'")
+            text = self.page.inner_text(selector)
+            self.logger.info(f"Successfully extracted inner text from '{selector}'")
+
+            return StepResult(success=True, data={"text": text})
+
+        except Exception as e:
+            error_msg = f"Extract inner text failed: {e}"
             self.logger.error(error_msg)
             return StepResult(success=False, error=error_msg)
     

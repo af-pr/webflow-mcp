@@ -157,6 +157,14 @@ Claude will call `run_workflow(name: "search_site", params: {"query": "webflow a
 - ✅ Error handling and reporting
 - ✅ Extensible action handler pattern
 - ✅ Session-based authentication (`auth` field in workflow YAML + `save_auth.py`)
+- ✅ Advanced waiting strategies:
+  - `wait_for` — DOM element presence
+  - `wait_for_hidden` — Element disappearance (for loading spinners)
+  - `wait_for_load_state` — Page load states (`networkidle` for SPAs)
+  - `wait_for_response` — Network request/response synchronization
+- ✅ Flexible text extraction:
+  - `extract_text` — Raw text (whitespace collapsed)
+  - `extract_inner_text` — Formatted text (layout preserved)
 
 ### Future Enhancements
 - 🔄 Output file writing
@@ -192,11 +200,79 @@ pylint src/
 - `fill`: Fill form inputs
 - `click`: Click on elements
 - `select`: Select dropdown options
-- `wait_for`: Wait for element to appear
+- `wait_for`: Wait for element to appear in the DOM
+- `wait_for_hidden`: Wait for element to disappear from the DOM or become hidden
+- `wait_for_load_state`: Wait for page to reach a load state (`domcontentloaded`, `load`, `networkidle`)
+- `wait_for_response`: Wait for a network response matching a URL pattern
 - `press_key`: Press a keyboard key on an element
-- `extract_text`: Extract text content from elements
+- `extract_text`: Extract raw text content from elements (whitespace collapsed, no layout)
+- `extract_inner_text`: Extract text preserving layout (newlines for paragraphs, lists, blocks)
 - `extract_html`: Extract HTML from elements
 - `screenshot`: Take a screenshot
+
+### `extract_text` vs `extract_inner_text`
+
+| | `extract_text` | `extract_inner_text` |
+|---|---|---|
+| Playwright method | `page.text_content()` | `page.inner_text()` |
+| Whitespace/newlines | Collapsed | Preserved (follows CSS layout) |
+| Hidden elements | Included | Excluded |
+| Use when | Simple string extraction | Structured responses (paragraphs, lists) |
+
+### Waiting Strategies (`wait_for_*`)
+
+Different wait strategies are optimized for different scenarios:
+
+#### `wait_for` — Wait for Element in DOM
+Waits for an element to appear in the DOM.
+```yaml
+- action: wait_for
+  selector: ".content"
+```
+**Use when:** Polling for content on already-loaded pages, simple DOM changes.
+
+#### `wait_for_hidden` — Wait for Element to Disappear
+Waits for an element to either become invisible (`display: none`) or be removed from the DOM entirely. Essential for synchronizing with loading spinners.
+```yaml
+- action: wait_for
+  selector: ".loading-spinner"
+
+- action: wait_for_hidden
+  selector: ".loading-spinner"
+
+- action: extract_inner_text
+  selector: ".result"
+```
+**Use when:** Waiting for async operations (API calls, data generation) marked by loading indicators.
+
+#### `wait_for_load_state` — Wait for Page Load State
+Waits for the page to reach a specific load state. This is critical for Single Page Applications (SPAs) like Angular or React.
+
+States:
+- `domcontentloaded` — DOM fully parsed (fastest, for static pages)
+- `load` — `window.onload` event fired
+- `networkidle` — No pending network requests for 500ms (most robust for SPAs)
+
+```yaml
+- action: goto
+  url: "https://app.example.com"
+
+- action: wait_for_load_state
+  state: networkidle  # Ensures Angular/React has finished initialization
+```
+**Use when:** Following `goto` to ensure the framework has initialized before interacting with dynamic elements.
+
+#### `wait_for_response` — Wait for Network Response
+Waits for a specific HTTP response matching a URL pattern.
+
+```yaml
+- action: wait_for_response
+  url_pattern: "**/api/generate**"  # Glob pattern
+  timeout: 60000                     # Optional, ms (default: 30000)
+```
+**Use when:** Confirming that a server has processed a request (e.g., confirming API response before extracting data).
+
+**Note:** For streaming responses, this waits for the first response chunk. If complete content transmission is needed, combine with `wait_for_hidden` (for loading indicators) or `wait_for_selector` (for completion markers).
 
 ## Legal Notice
 

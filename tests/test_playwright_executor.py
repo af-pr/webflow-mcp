@@ -134,6 +134,120 @@ class TestPlaywrightExecutorHandlers:
         assert result.success is False
         assert "Timeout 30000ms exceeded" in result.error
 
+    # --- WAIT_FOR_HIDDEN ---
+
+    def test_wait_for_hidden_calls_wait_for_selector_with_hidden_state(self):
+        # Arrange
+        step = Step(ActionType.WAIT_FOR_HIDDEN, {"selector": ".loading-spinner"})
+
+        # Act
+        result = self.executor._handle_wait_for_hidden(step)
+
+        # Assert
+        self.executor.page.wait_for_selector.assert_called_once_with(".loading-spinner", state="hidden")
+        assert result.success is True
+        assert result.data == {"selector": ".loading-spinner"}
+
+    def test_wait_for_hidden_timeout_returns_failure(self):
+        # Arrange
+        self.executor.page.wait_for_selector.side_effect = Exception("Timeout waiting for hidden")
+        step = Step(ActionType.WAIT_FOR_HIDDEN, {"selector": ".never-hides"})
+
+        # Act
+        result = self.executor._handle_wait_for_hidden(step)
+
+        # Assert
+        assert result.success is False
+        assert "Timeout waiting for hidden" in result.error
+
+    # --- WAIT_FOR_LOAD_STATE ---
+
+    def test_wait_for_load_state_calls_page_wait_for_load_state(self):
+        # Arrange
+        step = Step(ActionType.WAIT_FOR_LOAD_STATE, {"state": "networkidle"})
+
+        # Act
+        result = self.executor._handle_wait_for_load_state(step)
+
+        # Assert
+        self.executor.page.wait_for_load_state.assert_called_once_with("networkidle")
+        assert result.success is True
+        assert result.data == {"state": "networkidle"}
+
+    def test_wait_for_load_state_with_different_states(self):
+        # Test that different states pass through correctly
+        for state in ["load", "domcontentloaded", "networkidle"]:
+            self.executor.page.wait_for_load_state.reset_mock()
+            step = Step(ActionType.WAIT_FOR_LOAD_STATE, {"state": state})
+
+            result = self.executor._handle_wait_for_load_state(step)
+
+            self.executor.page.wait_for_load_state.assert_called_once_with(state)
+            assert result.success is True
+
+    def test_wait_for_load_state_timeout_returns_failure(self):
+        # Arrange
+        self.executor.page.wait_for_load_state.side_effect = Exception("Timeout 30000ms exceeded")
+        step = Step(ActionType.WAIT_FOR_LOAD_STATE, {"state": "networkidle"})
+
+        # Act
+        result = self.executor._handle_wait_for_load_state(step)
+
+        # Assert
+        assert result.success is False
+        assert "Timeout 30000ms exceeded" in result.error
+
+    # --- WAIT_FOR_RESPONSE ---
+
+    def test_wait_for_response_calls_page_wait_for_response(self):
+        # Arrange
+        mock_response = MagicMock()
+        mock_response.status = 200
+        mock_response.url = "https://api.example.com/generate"
+        self.executor.page.wait_for_response.return_value = mock_response
+        step = Step(ActionType.WAIT_FOR_RESPONSE, {"url_pattern": "**/api/generate**"})
+
+        # Act
+        result = self.executor._handle_wait_for_response(step)
+
+        # Assert
+        # wait_for_response gets called with (pattern, timeout=30000) as default
+        self.executor.page.wait_for_response.assert_called_once_with("**/api/generate**", timeout=30000)
+        assert result.success is True
+        assert result.data["url_pattern"] == "**/api/generate**"
+        assert result.data["status"] == 200
+        assert result.data["url"] == "https://api.example.com/generate"
+
+    def test_wait_for_response_with_custom_timeout(self):
+        # Arrange
+        mock_response = MagicMock()
+        mock_response.status = 200
+        mock_response.url = "https://api.example.com/slow-endpoint"
+        self.executor.page.wait_for_response.return_value = mock_response
+        step = Step(ActionType.WAIT_FOR_RESPONSE, {
+            "url_pattern": "**/slow-endpoint**",
+            "timeout": 60000
+        })
+
+        # Act
+        result = self.executor._handle_wait_for_response(step)
+
+        # Assert
+        self.executor.page.wait_for_response.assert_called_once_with("**/slow-endpoint**", timeout=60000)
+        assert result.success is True
+
+    def test_wait_for_response_timeout_returns_failure(self):
+        # Arrange
+        self.executor.page.wait_for_response.side_effect = Exception("Timeout waiting for response")
+        step = Step(ActionType.WAIT_FOR_RESPONSE, {"url_pattern": "**/never-comes**"})
+
+        # Act
+        result = self.executor._handle_wait_for_response(step)
+
+        # Assert
+        assert result.success is False
+        assert "Timeout waiting for response" in result.error
+
     # --- EXTRACT_TEXT ---
 
     def test_extract_text_calls_page_text_content_and_returns_text(self):
@@ -157,6 +271,45 @@ class TestPlaywrightExecutorHandlers:
         step = Step(ActionType.EXTRACT_TEXT, {"selector": "#missing"})
         result = self.executor._handle_extract_text(step)
 
+        assert result.success is False
+        assert "Selector not found" in result.error
+
+    # --- EXTRACT_INNER_TEXT ---
+
+    def test_extract_inner_text_calls_page_inner_text_and_returns_text(self):
+        # Arrange
+        self.executor.page.inner_text.return_value = "Line 1\nLine 2\n- item"
+        step = Step(ActionType.EXTRACT_INNER_TEXT, {"selector": ".response"})
+
+        # Act
+        result = self.executor._handle_extract_inner_text(step)
+
+        # Assert
+        self.executor.page.inner_text.assert_called_once_with(".response")
+        assert result.success is True
+        assert result.data == {"text": "Line 1\nLine 2\n- item"}
+
+    def test_extract_inner_text_preserves_newlines_from_block_elements(self):
+        # inner_text() returns newlines for block-level elements — verify we don't strip them
+        # Arrange
+        self.executor.page.inner_text.return_value = "Paragraph 1\n\nParagraph 2"
+        step = Step(ActionType.EXTRACT_INNER_TEXT, {"selector": "#content"})
+
+        # Act
+        result = self.executor._handle_extract_inner_text(step)
+
+        # Assert
+        assert result.data["text"] == "Paragraph 1\n\nParagraph 2"
+
+    def test_extract_inner_text_playwright_error_returns_failure(self):
+        # Arrange
+        self.executor.page.inner_text.side_effect = Exception("Selector not found")
+        step = Step(ActionType.EXTRACT_INNER_TEXT, {"selector": "#missing"})
+
+        # Act
+        result = self.executor._handle_extract_inner_text(step)
+
+        # Assert
         assert result.success is False
         assert "Selector not found" in result.error
 
@@ -209,9 +362,13 @@ class TestPlaywrightExecutorValidation:
         (ActionType.FILL,         {"selector": "#el", "value": "text"}),
         (ActionType.CLICK,        {"selector": "#btn"}),
         (ActionType.SELECT,       {"selector": "#sel", "value": "opt"}),
-        (ActionType.WAIT_FOR,     {"selector": "#el"}),
-        (ActionType.EXTRACT_TEXT, {"selector": "#el"}),
-        (ActionType.EXTRACT_HTML, {"selector": "#el"}),
+        (ActionType.WAIT_FOR,              {"selector": "#el"}),
+        (ActionType.WAIT_FOR_HIDDEN,        {"selector": "#el"}),
+        (ActionType.WAIT_FOR_LOAD_STATE,    {"state": "networkidle"}),
+        (ActionType.WAIT_FOR_RESPONSE,      {"url_pattern": "**/api/**"}),
+        (ActionType.EXTRACT_TEXT,           {"selector": "#el"}),
+        (ActionType.EXTRACT_INNER_TEXT,  {"selector": "#el"}),
+        (ActionType.EXTRACT_HTML,        {"selector": "#el"}),
         (ActionType.SCREENSHOT,   {"path": "/tmp/sc.png"}),
         (ActionType.PRESS_KEY,    {"selector": "#el", "key": "Enter"}),
     ])
@@ -225,9 +382,13 @@ class TestPlaywrightExecutorValidation:
         (ActionType.FILL,         {"value": "text"},     "selector"),
         (ActionType.CLICK,        {},                    "selector"),
         (ActionType.SELECT,       {"selector": "#sel"},  "value"),
-        (ActionType.WAIT_FOR,     {},                    "selector"),
-        (ActionType.EXTRACT_TEXT, {},                    "selector"),
-        (ActionType.EXTRACT_HTML, {},                    "selector"),
+        (ActionType.WAIT_FOR,              {},  "selector"),
+        (ActionType.WAIT_FOR_HIDDEN,        {},  "selector"),
+        (ActionType.WAIT_FOR_LOAD_STATE,    {},  "state"),
+        (ActionType.WAIT_FOR_RESPONSE,      {},  "url_pattern"),
+        (ActionType.EXTRACT_TEXT,           {},  "selector"),
+        (ActionType.EXTRACT_INNER_TEXT,  {},  "selector"),
+        (ActionType.EXTRACT_HTML,        {},  "selector"),
         (ActionType.SCREENSHOT,   {},                    "path"),
         (ActionType.PRESS_KEY,    {"key": "Enter"},      "selector"),
         (ActionType.PRESS_KEY,    {"selector": "#el"},   "key"),

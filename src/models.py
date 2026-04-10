@@ -20,7 +20,11 @@ class ActionType(Enum):
     CLICK = "click"
     SELECT = "select"
     WAIT_FOR = "wait_for"
+    WAIT_FOR_HIDDEN = "wait_for_hidden"
+    WAIT_FOR_LOAD_STATE = "wait_for_load_state"
+    WAIT_FOR_RESPONSE = "wait_for_response"
     EXTRACT_TEXT = "extract_text"
+    EXTRACT_INNER_TEXT = "extract_inner_text"
     EXTRACT_HTML = "extract_html"
     SCREENSHOT = "screenshot"
     PRESS_KEY = "press_key"
@@ -37,7 +41,11 @@ class Step:
         ActionType.CLICK: ["selector"],
         ActionType.SELECT: ["selector", "value"],
         ActionType.WAIT_FOR: ["selector"],
+        ActionType.WAIT_FOR_HIDDEN: ["selector"],
+        ActionType.WAIT_FOR_LOAD_STATE: ["state"],
+        ActionType.WAIT_FOR_RESPONSE: ["url_pattern"],
         ActionType.EXTRACT_TEXT: ["selector"],
+        ActionType.EXTRACT_INNER_TEXT: ["selector"],
         ActionType.EXTRACT_HTML: ["selector"],
         ActionType.SCREENSHOT: ["path"],
         ActionType.PRESS_KEY: ["selector", "key"],
