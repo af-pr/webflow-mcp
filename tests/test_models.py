@@ -3,7 +3,7 @@ Unit tests for models module
 """
 
 import pytest
-from src.models import ActionType, Step, StepResult, Workflow
+from src.models import ActionType, Step, StepResult, ValidationError, Workflow
 
 
 class TestActionType:
@@ -120,3 +120,31 @@ class TestWorkflow:
     def test_from_dict_raises_on_invalid_structure(self, data, match):
         with pytest.raises(ValueError, match=match):
             Workflow.from_dict(data)
+
+    def test_validate_passes_with_valid_workflow(self):
+        workflow = Workflow(
+            name="test",
+            steps=[Step(ActionType.GOTO, {"url": "https://example.com"})]
+        )
+        workflow.validate()  # Should not raise
+
+    def test_validate_raises_when_name_is_empty(self):
+        workflow = Workflow(
+            name="",
+            steps=[Step(ActionType.GOTO, {"url": "https://example.com"})]
+        )
+        with pytest.raises(ValidationError, match="must have a name"):
+            workflow.validate()
+
+    def test_validate_raises_when_steps_is_empty(self):
+        workflow = Workflow(name="test", steps=[])
+        with pytest.raises(ValidationError, match="at least one step"):
+            workflow.validate()
+
+    def test_validate_raises_when_step_is_invalid(self):
+        workflow = Workflow(
+            name="test",
+            steps=[Step(ActionType.GOTO, {})]  # Missing required 'url'
+        )
+        with pytest.raises(ValidationError, match="missing required parameter"):
+            workflow.validate()

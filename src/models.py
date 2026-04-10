@@ -8,6 +8,10 @@ from dataclasses import dataclass
 from typing import Optional, Any, Dict
 from enum import Enum
 
+class ValidationError(ValueError):
+    """Custom exception for validation errors"""
+    pass
+
 
 class ActionType(Enum):
     """Supported workflow action types"""
@@ -51,18 +55,18 @@ class Step:
             Step instance
         
         Raises:
-            ValueError: If 'action' field is missing or unknown
+            ValidationError: If 'action' field is missing or unknown
         """
         action_str = data.get("action")
         if not action_str:
-            raise ValueError("Step must have an 'action' field")
+            raise ValidationError("Step must have an 'action' field")
         
         # Validate action exists
         try:
             action = ActionType(action_str)
         except ValueError:
             available = ", ".join([a.value for a in ActionType])
-            raise ValueError(
+            raise ValidationError(
                 f"Unknown action: '{action_str}'. Available actions: {available}"
             )
         
@@ -74,13 +78,13 @@ class Step:
         """Validate that all required parameters are present
         
         Raises:
-            ValueError: If required parameters are missing
+            ValidationError: If required parameters are missing
         """
         required = self.REQUIRED_PARAMS.get(self.action, [])
         
         for param in required:
             if param not in self.params:
-                raise ValueError(
+                raise ValidationError(
                     f"Step '{self.action.value}' missing required parameter: '{param}'"
                 )
 
@@ -123,18 +127,18 @@ class Workflow:
             Workflow instance
         
         Raises:
-            ValueError: If required fields are missing
+            ValidationError: If required fields are missing
         """
         name = data.get("name")
         if not name:
-            raise ValueError("Workflow must have a 'name' field")
+            raise ValidationError("Workflow must have a 'name' field")
         
         steps_data = data.get("steps")
         if not steps_data:
-            raise ValueError("Workflow must have a 'steps' field")
+            raise ValidationError("Workflow must have a 'steps' field")
         
         if not isinstance(steps_data, list):
-            raise ValueError("'steps' must be a list")
+            raise ValidationError("'steps' must be a list")
         
         # Convert each step dict to Step object
         steps = [Step.from_dict(step_dict) for step_dict in steps_data]
@@ -142,3 +146,15 @@ class Workflow:
         output = data.get("output")
         
         return cls(name=name, steps=steps, output=output)
+
+    def validate(self) -> None:
+        """ Validate the workflow structure and steps
+        Raises:
+            ValidationError: If any step is invalid
+        """
+        if not self.name:
+            raise ValidationError("Workflow must have a name")
+        if not self.steps:
+            raise ValidationError("Workflow must have at least one step")
+        for step in self.steps:
+            step.validate()
