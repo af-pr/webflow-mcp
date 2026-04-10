@@ -60,6 +60,7 @@ class TestStep:
         (ActionType.EXTRACT_TEXT, {"selector": "#el"}),
         (ActionType.EXTRACT_HTML, {"selector": "#el"}),
         (ActionType.SCREENSHOT,   {"path": "/tmp/sc.png"}),
+        (ActionType.PRESS_KEY,    {"selector": "#el", "key": "Enter"}),
     ])
     def test_validate_passes_with_required_params(self, action, params):
         Step(action, params).validate()

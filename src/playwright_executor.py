@@ -48,6 +48,7 @@ class PlaywrightExecutor:
             ActionType.EXTRACT_TEXT: self._handle_extract_text,
             ActionType.EXTRACT_HTML: self._handle_extract_html,
             ActionType.SCREENSHOT: self._handle_screenshot,
+            ActionType.PRESS_KEY: self._handle_press_key,
         }
         
         self.logger.info("PlaywrightExecutor initialized")
@@ -281,6 +282,23 @@ class PlaywrightExecutor:
         
         except Exception as e:
             error_msg = f"Screenshot failed: {e}"
+            self.logger.error(error_msg)
+            return StepResult(success=False, error=error_msg)
+    
+    def _handle_press_key(self, step: Step) -> StepResult:
+        """Press a key on a focused element"""
+        try:
+            selector = step.params["selector"]
+            key = step.params["key"]
+            
+            self.logger.debug(f"Pressing key '{key}' on '{selector}'")
+            self.page.press(selector, key)
+            self.logger.info(f"Successfully pressed key '{key}' on '{selector}'")
+            
+            return StepResult(success=True, data={"selector": selector, "key": key})
+        
+        except Exception as e:
+            error_msg = f"Press key failed: {e}"
             self.logger.error(error_msg)
             return StepResult(success=False, error=error_msg)  
 

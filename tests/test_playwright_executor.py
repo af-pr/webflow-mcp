@@ -215,6 +215,7 @@ class TestPlaywrightExecutorValidation:
         (ActionType.EXTRACT_TEXT, {"selector": "#el"}),
         (ActionType.EXTRACT_HTML, {"selector": "#el"}),
         (ActionType.SCREENSHOT,   {"path": "/tmp/sc.png"}),
+        (ActionType.PRESS_KEY,    {"selector": "#el", "key": "Enter"}),
     ])
     def test_validate_step_passes_when_all_params_present(self, action, params):
         step = Step(action, params)
@@ -230,6 +231,8 @@ class TestPlaywrightExecutorValidation:
         (ActionType.EXTRACT_TEXT, {},                    "selector"),
         (ActionType.EXTRACT_HTML, {},                    "selector"),
         (ActionType.SCREENSHOT,   {},                    "path"),
+        (ActionType.PRESS_KEY,    {"key": "Enter"},      "selector"),
+        (ActionType.PRESS_KEY,    {"selector": "#el"},   "key"),
     ])
     def test_validate_step_raises_when_param_is_missing(self, action, params, missing_param):
         step = Step(action, params)

@@ -23,6 +23,7 @@ class ActionType(Enum):
     EXTRACT_TEXT = "extract_text"
     EXTRACT_HTML = "extract_html"
     SCREENSHOT = "screenshot"
+    PRESS_KEY = "press_key"
 
 
 @dataclass
@@ -39,6 +40,7 @@ class Step:
         ActionType.EXTRACT_TEXT: ["selector"],
         ActionType.EXTRACT_HTML: ["selector"],
         ActionType.SCREENSHOT: ["path"],
+        ActionType.PRESS_KEY: ["selector", "key"],
     }
     
     action: ActionType
