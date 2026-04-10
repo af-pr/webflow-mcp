@@ -10,7 +10,7 @@ import os
 from typing import Optional, List, Dict, Any
 from playwright.sync_api import sync_playwright, Page, Browser, BrowserContext
 
-from src.models import Step, StepResult, ActionType
+from src.models import Step, StepResult, ActionType, Workflow
 
 class PlaywrightExecutor:
     """Execute web automation workflows using Playwright"""
@@ -110,20 +110,20 @@ class PlaywrightExecutor:
         """Validate that a step has all required parameters"""
         step.validate()
     
-    def execute_workflow(self, steps: List[Step]) -> List[StepResult]:
+    def execute_workflow(self, workflow: Workflow) -> List[StepResult]:
         """
-        Execute a workflow (list of steps)
+        Execute a workflow
         
         Args:
-            steps: List of Step objects
+            workflow: Workflow object to execute
         
         Returns:
             List of StepResult objects
         """
-        self.logger.info(f"Executing workflow with {len(steps)} steps")
+        self.logger.info(f"Executing workflow '{workflow.name}' with {len(workflow.steps)} steps")
         results = []
         
-        for idx, step in enumerate(steps):
+        for idx, step in enumerate(workflow.steps):
             try:
                 self._validate_step(step)
                 

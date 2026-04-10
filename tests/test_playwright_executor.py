@@ -10,7 +10,7 @@ import pytest
 from unittest.mock import MagicMock
 
 from src.playwright_executor import PlaywrightExecutor
-from src.models import ActionType, Step
+from src.models import ActionType, Step, Workflow
 
 
 class TestPlaywrightExecutorInit:
@@ -245,50 +245,65 @@ class TestPlaywrightExecutorExecuteWorkflow:
         self.executor.page = MagicMock()
 
     def test_returns_one_result_per_step(self):
-        steps = [
-            Step(ActionType.GOTO,  {"url": "https://example.com"}),
-            Step(ActionType.CLICK, {"selector": "#btn"}),
-        ]
-        results = self.executor.execute_workflow(steps)
+        workflow = Workflow(
+            name="test",
+            steps=[
+                Step(ActionType.GOTO, {"url": "https://example.com"}),
+                Step(ActionType.CLICK, {"selector": "#btn"}),
+            ]
+        )
+        results = self.executor.execute_workflow(workflow)
 
         assert len(results) == 2
 
     def test_all_successful_steps_return_success(self):
-        steps = [
-            Step(ActionType.GOTO,  {"url": "https://example.com"}),
-            Step(ActionType.CLICK, {"selector": "#btn"}),
-        ]
-        results = self.executor.execute_workflow(steps)
+        workflow = Workflow(
+            name="test",
+            steps=[
+                Step(ActionType.GOTO, {"url": "https://example.com"}),
+                Step(ActionType.CLICK, {"selector": "#btn"}),
+            ]
+        )
+        results = self.executor.execute_workflow(workflow)
 
         assert all(r.success for r in results)
 
     def test_continues_after_a_failed_step(self):
         self.executor.page.goto.side_effect = Exception("Network error")
-        steps = [
-            Step(ActionType.GOTO,  {"url": "https://example.com"}),
-            Step(ActionType.CLICK, {"selector": "#btn"}),
-        ]
-        results = self.executor.execute_workflow(steps)
+        workflow = Workflow(
+            name="test",
+            steps=[
+                Step(ActionType.GOTO, {"url": "https://example.com"}),
+                Step(ActionType.CLICK, {"selector": "#btn"}),
+            ]
+        )
+        results = self.executor.execute_workflow(workflow)
 
         assert results[0].success is False
         assert results[1].success is True
 
     def test_missing_param_step_returns_failure_and_continues(self):
-        steps = [
-            Step(ActionType.GOTO,  {}),                   # missing url
-            Step(ActionType.CLICK, {"selector": "#btn"}),
-        ]
-        results = self.executor.execute_workflow(steps)
+        workflow = Workflow(
+            name="test",
+            steps=[
+                Step(ActionType.GOTO, {}),  # missing url
+                Step(ActionType.CLICK, {"selector": "#btn"}),
+            ]
+        )
+        results = self.executor.execute_workflow(workflow)
 
         assert results[0].success is False
         assert "url" in results[0].error
         assert results[1].success is True
 
     def test_unknown_action_returns_failure(self):
-        step = Step(ActionType.GOTO, {"url": "https://example.com"})
+        workflow = Workflow(
+            name="test",
+            steps=[Step(ActionType.GOTO, {"url": "https://example.com"})]
+        )
         self.executor.actions.pop(ActionType.GOTO)
 
-        results = self.executor.execute_workflow([step])
+        results = self.executor.execute_workflow(workflow)
 
         assert results[0].success is False
         assert "Unknown action" in results[0].error

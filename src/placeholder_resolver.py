@@ -9,7 +9,7 @@ import logging
 import re
 from typing import List, Dict, Any
 
-from src.models import Step
+from src.models import Step, Workflow
 
 
 class PlaceholderResolver:
@@ -19,16 +19,29 @@ class PlaceholderResolver:
         """Initialize PlaceholderResolver"""
         self.logger = logging.getLogger(__name__)
     
-    def resolve_steps(
-        self,
-        steps: List[Step],
-        data: Dict[str, Any]
-    ) -> List[Step]:
+    def resolve_workflow(self, workflow: Workflow, data: Dict[str, Any]) -> Workflow:
         """
-        Resolve placeholders in all steps
+        Resolve placeholders in a workflow
         
-        Substitutes all occurrences of {{placeholder}} in step parameters
-        with corresponding values from the data dictionary.
+        Creates a new Workflow with all {{placeholder}} tokens in the steps
+        substituted with values from the provided data dictionary.
+        
+        Args:
+            workflow: Workflow object potentially containing placeholders
+            data: Dictionary mapping placeholder names to their values
+        
+        Returns:
+            New Workflow object with all placeholders resolved
+        
+        Raises:
+            ValidationError: If unresolved placeholders remain after substitution
+        """
+        resolved_steps = self._resolve_steps_internal(workflow.steps, data)
+        return Workflow(name=workflow.name, steps=resolved_steps, output=workflow.output)
+    
+    def _resolve_steps_internal(self, steps: List[Step], data: Dict[str, Any]) -> List[Step]:
+        """
+        Internal method to resolve placeholders in a list of steps.
         
         Args:
             steps: List of Step objects potentially containing placeholders
@@ -36,16 +49,6 @@ class PlaceholderResolver:
         
         Returns:
             List of Step objects with all placeholders resolved
-        
-        Example:
-            steps = [
-                Step(ActionType.GOTO, {"url": "https://example.com"}),
-                Step(ActionType.FILL, {"selector": "#input", "value": "{{question}}"})
-            ]
-            data = {"question": "What is AI?"}
-            
-            resolved = resolver.resolve_steps(steps, data)
-            # resolved[1].params["value"] == "What is AI?"
         """
         resolved_steps = []
         
