@@ -6,27 +6,26 @@ into Workflow objects.
 """
 
 import logging
-import os
-from typing import Dict, Any
+from pathlib import Path
+from typing import Dict, Any, Union
 
 import yaml
 
 from src.models import Workflow
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-WORKFLOWS_DIR = os.path.join(BASE_DIR, "workflows")
+WORKFLOWS_DIR = Path(__file__).parent.parent / "workflows"
 
 class WorkflowLoader:
     """Load and parse workflow YAML files"""
     
-    def __init__(self, workflows_dir: str = WORKFLOWS_DIR) -> None:
+    def __init__(self, workflows_dir: Union[str, Path] = WORKFLOWS_DIR) -> None:
         """
         Initialize WorkflowLoader
         
         Args:
             workflows_dir: Directory path containing workflow YAML files
         """
-        self.workflows_dir = workflows_dir
+        self.workflows_dir = Path(workflows_dir)
         self.logger = logging.getLogger(__name__)
     
     def load_workflow(self, name: str) -> Workflow:
@@ -50,7 +49,7 @@ class WorkflowLoader:
         workflow.validate()
         return workflow
 
-    def _resolve_workflow_path(self, workflow_name: str) -> str:
+    def _resolve_workflow_path(self, workflow_name: str) -> Path:
         """
         Returns the full path to the workflow YAML file in the templates directory
         
@@ -59,9 +58,9 @@ class WorkflowLoader:
         """
         if not workflow_name.endswith(".yaml"):
             workflow_name += ".yaml"
-        return os.path.join(self.workflows_dir, workflow_name)
+        return self.workflows_dir / workflow_name
     
-    def _load_yaml(self, file_path: str) -> Dict[str, Any]:
+    def _load_yaml(self, file_path: Path) -> Dict[str, Any]:
         """
         Load and parse a YAML file in the provided file path
         
@@ -72,7 +71,7 @@ class WorkflowLoader:
             FileNotFoundError: If the file does not exist
             yaml.YAMLError: If the YAML is malformed
         """
-        if not os.path.exists(file_path):
+        if not file_path.exists():
             raise FileNotFoundError(f"Workflow file not found: {file_path}")
         
         with open(file_path, "r") as f:
