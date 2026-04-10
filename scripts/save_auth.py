@@ -28,7 +28,13 @@ def save_auth(url: str, name: str) -> None:
     AUTH_DIR.mkdir(parents=True, exist_ok=True)
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=False)
+        browser = p.chromium.launch(
+            headless=False,
+            args=[
+                '--start-maximized',
+                '--disable-blink-features=AutomationControlled',
+            ]
+        )
         context = browser.new_context()
         page = context.new_page()
         page.goto(url)

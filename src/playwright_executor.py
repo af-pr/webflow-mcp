@@ -71,7 +71,13 @@ class PlaywrightExecutor:
         self.logger.debug("Starting browser...")
         try:
             self.playwright = sync_playwright().start()
-            self.browser = self.playwright.chromium.launch(headless=self.headless)
+            self.browser = self.playwright.chromium.launch(
+                headless=self.headless,
+                args=[
+                    '--start-maximized',
+                    '--disable-blink-features=AutomationControlled',
+                ]
+            )
             self.logger.info("Browser started successfully")
         except Exception as e:
             self.logger.error(f"Failed to start browser: {e}")

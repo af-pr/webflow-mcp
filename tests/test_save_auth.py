@@ -121,7 +121,14 @@ class TestSaveAuth:
 
         mod.save_auth("https://example.com", "mysite")
 
-        p.chromium.launch.assert_called_once_with(headless=False)
+        p.chromium.launch.assert_called_once_with(
+            headless=False,
+            args=[
+                '--start-maximized',
+                '--disable-blink-features=AutomationControlled',
+            ]
+        )
+
 
 
 class TestSaveAuthMain:
