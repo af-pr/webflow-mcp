@@ -3,7 +3,7 @@ Unit tests for placeholder_resolver module
 """
 
 import pytest
-from src.models import ActionType, Step
+from src.models import ActionType, Step, ValidationError
 from src.placeholder_resolver import PlaceholderResolver
 
 
@@ -34,10 +34,20 @@ class TestPlaceholderResolver:
         resolved = resolver.resolve_steps(steps, data)
         assert resolved[0].params["value"] == expected
 
-    def test_missing_placeholder_key_leaves_placeholder(self, resolver):
+    def test_missing_placeholder_key_raises_validation_error(self, resolver):
         steps = [Step(ActionType.FILL, {"value": "{{missing_key}}"})]
-        resolved = resolver.resolve_steps(steps, {"other_key": "value"})
-        assert resolved[0].params["value"] == "{{missing_key}}"
+        with pytest.raises(ValidationError, match="missing_key"):
+            resolver.resolve_steps(steps, {"other_key": "value"})
+
+    def test_multiple_unresolved_placeholders_reported_together(self, resolver):
+        steps = [Step(ActionType.FILL, {"value": "{{a}} and {{b}}"})] 
+        with pytest.raises(ValidationError, match="a"):
+            resolver.resolve_steps(steps, {})
+
+    def test_partially_resolved_remaining_placeholder_raises(self, resolver):
+        steps = [Step(ActionType.FILL, {"value": "{{provided}} and {{missing}}"})] 
+        with pytest.raises(ValidationError, match="missing"):
+            resolver.resolve_steps(steps, {"provided": "ok"})
 
     def test_non_string_param_values_are_not_modified(self, resolver):
         steps = [Step(ActionType.GOTO, {"url": "https://example.com", "timeout": 5000})]

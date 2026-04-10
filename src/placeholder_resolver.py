@@ -6,6 +6,7 @@ steps by substituting them with actual runtime data.
 """
 
 import logging
+import re
 from typing import List, Dict, Any
 
 from src.models import Step
@@ -53,6 +54,7 @@ class PlaceholderResolver:
             resolved_step = Step(action=step.action, params=resolved_params)
             resolved_steps.append(resolved_step)
         
+        self._validate_no_unresolved(resolved_steps)
         return resolved_steps
     
     @staticmethod
@@ -83,3 +85,28 @@ class PlaceholderResolver:
             result[key] = value
         
         return result
+
+    @staticmethod
+    def _validate_no_unresolved(steps: List[Step]) -> None:
+        """
+        Validates that there are no unresolved {{placeholder}} tokens in the provided steps.
+
+        Args:
+            steps: List of Step objects after resolution
+
+        Raises:
+            ValidationError: If unresolved placeholders are found
+        """
+        from src.models import ValidationError
+
+        pattern = re.compile(r"\{\{(\w+)\}\}")
+        unresolved = set()
+
+        for step in steps:
+            for value in step.params.values():
+                if isinstance(value, str):
+                    unresolved.update(pattern.findall(value))
+
+        if unresolved:
+            missing = ", ".join(sorted(unresolved))
+            raise ValidationError(f"Unresolved placeholders: {missing}")
