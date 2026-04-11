@@ -233,6 +233,25 @@ pylint src/
 
 ## Supported Workflow Actions
 
+### Action Parameters
+
+| Action                   | Required Parameters                |
+|--------------------------|------------------------------------|
+| goto                     | url                                |
+| fill                     | selector, value                    |
+| click                    | selector                           |
+| select                   | selector, value                    |
+| wait_for                 | selector                           |
+| wait_for_hidden          | selector                           |
+| wait_for_load_state      | state                              |
+| wait_for_response        | url_pattern                        |
+| press_key                | selector, key                      |
+| extract_text             | selector                           |
+| extract_inner_text       | selector                           |
+| extract_html             | selector                           |
+| extract_attribute_value  | selector, attribute                |
+| screenshot               | path                               |
+
 - `goto`: Navigate to a URL
 - `fill`: Fill form inputs
 - `click`: Click on elements
@@ -245,6 +264,7 @@ pylint src/
 - `extract_text`: Extract raw text content from elements (whitespace collapsed, no layout)
 - `extract_inner_text`: Extract text preserving layout (newlines for paragraphs, lists, blocks)
 - `extract_html`: Extract HTML from elements
+- `extract_attribute_value`: Extract the value of an attribute from an element (e.g., value of an input)
 - `screenshot`: Take a screenshot
 
 ### `extract_text` vs `extract_inner_text`

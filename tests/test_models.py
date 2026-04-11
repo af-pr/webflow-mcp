@@ -16,6 +16,7 @@ class TestActionType:
         ("extract_text", ActionType.EXTRACT_TEXT),
         ("extract_html", ActionType.EXTRACT_HTML),
         ("screenshot", ActionType.SCREENSHOT),
+        ("extract_attribute_value", ActionType.EXTRACT_ATTRIBUTE_VALUE),
     ])
     def test_from_string_value(self, value, expected):
         assert ActionType(value) == expected
@@ -36,6 +37,11 @@ class TestStep:
             {"action": "fill", "selector": "#input", "value": "test value"},
             ActionType.FILL,
             {"selector": "#input", "value": "test value"},
+        ),
+        (
+            {"action": "extract_attribute_value", "selector": "#input", "attribute": "value"},
+            ActionType.EXTRACT_ATTRIBUTE_VALUE,
+            {"selector": "#input", "attribute": "value"},
         ),
     ])
     def test_from_dict(self, data, expected_action, expected_params):
@@ -61,6 +67,7 @@ class TestStep:
         (ActionType.EXTRACT_HTML, {"selector": "#el"}),
         (ActionType.SCREENSHOT,   {"path": "/tmp/sc.png"}),
         (ActionType.PRESS_KEY,    {"selector": "#el", "key": "Enter"}),
+        (ActionType.EXTRACT_ATTRIBUTE_VALUE, {"selector": "#input", "attribute": "value"}),
     ])
     def test_validate_passes_with_required_params(self, action, params):
         Step(action, params).validate()
@@ -68,6 +75,10 @@ class TestStep:
     def test_validate_raises_when_param_missing(self):
         with pytest.raises(ValueError, match="missing required parameter: 'url'"):
             Step(ActionType.GOTO, {}).validate()
+        with pytest.raises(ValueError, match="missing required parameter: 'attribute'"):
+            Step(ActionType.EXTRACT_ATTRIBUTE_VALUE, {"selector": "#input"}).validate()
+        with pytest.raises(ValueError, match="missing required parameter: 'selector'"):
+            Step(ActionType.EXTRACT_ATTRIBUTE_VALUE, {"attribute": "value"}).validate()
 
     def test_validate_raises_for_fill_missing_value(self):
         with pytest.raises(ValueError, match="missing required parameter: 'value'"):

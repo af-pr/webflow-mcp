@@ -26,6 +26,7 @@ class ActionType(Enum):
     EXTRACT_TEXT = "extract_text"
     EXTRACT_INNER_TEXT = "extract_inner_text"
     EXTRACT_HTML = "extract_html"
+    EXTRACT_ATTRIBUTE_VALUE = "extract_attribute_value"  # Extrae el valor de un atributo (por ejemplo, value de un input)
     SCREENSHOT = "screenshot"
     PRESS_KEY = "press_key"
 
@@ -47,6 +48,7 @@ class Step:
         ActionType.EXTRACT_TEXT: ["selector"],
         ActionType.EXTRACT_INNER_TEXT: ["selector"],
         ActionType.EXTRACT_HTML: ["selector"],
+        ActionType.EXTRACT_ATTRIBUTE_VALUE: ["selector", "attribute"],
         ActionType.SCREENSHOT: ["path"],
         ActionType.PRESS_KEY: ["selector", "key"],
     }

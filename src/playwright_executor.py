@@ -50,6 +50,7 @@ class PlaywrightExecutor:
             ActionType.EXTRACT_TEXT: self._handle_extract_text,
             ActionType.EXTRACT_INNER_TEXT: self._handle_extract_inner_text,
             ActionType.EXTRACT_HTML: self._handle_extract_html,
+            ActionType.EXTRACT_ATTRIBUTE_VALUE: self._handle_extract_attribute_value,
             ActionType.SCREENSHOT: self._handle_screenshot,
             ActionType.PRESS_KEY: self._handle_press_key,
         }
@@ -421,3 +422,17 @@ class PlaywrightExecutor:
             error_msg = f"Press key failed: {e}"
             self.logger.error(error_msg)
             return StepResult(success=False, error=error_msg)  
+
+    def _handle_extract_attribute_value(self, step: Step) -> StepResult:
+        """Extract the value of an attribute from an element (e.g., value of an input)"""
+        try:
+            selector = step.params["selector"]
+            attribute = step.params["attribute"]
+            self.logger.debug(f"Extracting attribute '{attribute}' from '{selector}'")
+            value = self.page.get_attribute(selector, attribute)
+            self.logger.info(f"Successfully extracted attribute '{attribute}' from '{selector}'")
+            return StepResult(success=True, data={attribute: value})
+        except Exception as e:
+            error_msg = f"Extract attribute value failed: {e}"
+            self.logger.error(error_msg)
+            return StepResult(success=False, error=error_msg)

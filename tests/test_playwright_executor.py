@@ -36,6 +36,23 @@ class TestPlaywrightExecutorInit:
 
 
 class TestPlaywrightExecutorHandlers:
+
+    # --- EXTRACT_ATTRIBUTE_VALUE ---
+    def test_extract_attribute_value_calls_page_get_attribute_and_returns_value(self):
+        self.executor.page.get_attribute.return_value = "myval"
+        step = Step(ActionType.EXTRACT_ATTRIBUTE_VALUE, {"selector": "#input", "attribute": "value"})
+        result = self.executor._handle_extract_attribute_value(step)
+        self.executor.page.get_attribute.assert_called_once_with("#input", "value")
+        assert result.success is True
+        assert result.data == {"value": "myval"}
+
+    def test_extract_attribute_value_playwright_error_returns_failure(self):
+        self.executor.page.get_attribute.side_effect = Exception("Element not found")
+        step = Step(ActionType.EXTRACT_ATTRIBUTE_VALUE, {"selector": "#input", "attribute": "value"})
+        result = self.executor._handle_extract_attribute_value(step)
+        assert result.success is False
+        assert "Element not found" in result.error
+
     """Handler tests: happy path verifies Playwright methods are called correctly,
     then error cases verify that Playwright failures return StepResult(success=False).
     """
@@ -371,6 +388,7 @@ class TestPlaywrightExecutorValidation:
         (ActionType.EXTRACT_HTML,        {"selector": "#el"}),
         (ActionType.SCREENSHOT,   {"path": "/tmp/sc.png"}),
         (ActionType.PRESS_KEY,    {"selector": "#el", "key": "Enter"}),
+        (ActionType.EXTRACT_ATTRIBUTE_VALUE, {"selector": "#input", "attribute": "value"}),
     ])
     def test_validate_step_passes_when_all_params_present(self, action, params):
         step = Step(action, params)
@@ -392,6 +410,8 @@ class TestPlaywrightExecutorValidation:
         (ActionType.SCREENSHOT,   {},                    "path"),
         (ActionType.PRESS_KEY,    {"key": "Enter"},      "selector"),
         (ActionType.PRESS_KEY,    {"selector": "#el"},   "key"),
+        (ActionType.EXTRACT_ATTRIBUTE_VALUE, {"selector": "#input"}, "attribute"),
+        (ActionType.EXTRACT_ATTRIBUTE_VALUE, {"attribute": "value"}, "selector"),
     ])
     def test_validate_step_raises_when_param_is_missing(self, action, params, missing_param):
         step = Step(action, params)
