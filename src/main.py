@@ -8,13 +8,13 @@ Exposes a single MCP tool `run_workflow` that:
 4. Returns the collected results as text
 """
 
+
 import logging
 import sys
 import argparse
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
-
 from src.workflow_loader import WorkflowLoader
 from src.placeholder_resolver import PlaceholderResolver
 from src.playwright_executor import PlaywrightExecutor
@@ -36,15 +36,20 @@ def run_workflow(name: str, params: dict[str, Any]) -> str:
     Returns:
         A text summary of each step result
     """
+    logger = logging.getLogger(__name__)
+    logger.info(f"[MCP] Loading workflow '{name}'...")
     loader = WorkflowLoader()
     resolver = PlaceholderResolver()
 
     workflow = loader.load_workflow(name)
+    logger.info(f"[MCP] Workflow '{workflow.name}' loaded successfully. Resolving placeholders...")
     resolved_workflow = resolver.resolve_workflow(workflow, params)
+    logger.info(f"[MCP] Placeholders resolved. Executing workflow...")
 
     with PlaywrightExecutor() as executor:
         results = executor.execute_workflow(resolved_workflow)
 
+    logger.info(f"[MCP] Workflow execution completed. Formatting results...")
     return _format_results(results)
 
 

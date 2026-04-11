@@ -43,10 +43,13 @@ class WorkflowLoader:
             yaml.YAMLError: If the YAML is malformed
             ValidationError: If the workflow structure is invalid
         """
+        self.logger.info(f"[WorkflowLoader] Searching for workflow '{name}'...")
         file_path = self._resolve_workflow_path(name)
+        self.logger.info(f"[WorkflowLoader] Loading YAML from {file_path}")
         data = self._load_yaml(file_path)
         workflow = Workflow.from_dict(data)
         workflow.validate()
+        self.logger.info(f"[WorkflowLoader] Workflow '{workflow.name}' loaded and validated")
         return workflow
 
     def _resolve_workflow_path(self, workflow_name: str) -> Path:

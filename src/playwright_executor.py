@@ -54,10 +54,10 @@ class PlaywrightExecutor:
             ActionType.PRESS_KEY: self._handle_press_key,
         }
         
-        self.logger.info("PlaywrightExecutor initialized")
     
     def __enter__(self) -> "PlaywrightExecutor":
         """Context manager entry"""
+        self.logger.info("[PlaywrightExecutor] Entering context, launching browser...")
         self._start_browser()
         return self
     
@@ -68,7 +68,7 @@ class PlaywrightExecutor:
     
     def _start_browser(self) -> None:
         """Start Playwright and launch browser"""
-        self.logger.debug("Starting browser...")
+        self.logger.info("[PlaywrightExecutor] Launching Chromium browser...")
         try:
             self.playwright = sync_playwright().start()
             self.browser = self.playwright.chromium.launch(
@@ -78,9 +78,9 @@ class PlaywrightExecutor:
                     '--disable-blink-features=AutomationControlled',
                 ]
             )
-            self.logger.info("Browser started successfully")
+            self.logger.info("[PlaywrightExecutor] Chromium browser launched successfully")
         except Exception as e:
-            self.logger.error(f"Failed to start browser: {e}")
+            self.logger.error(f"[PlaywrightExecutor] Failed to launch Chromium: {e}")
             raise
 
     def _create_context(self, workflow: Workflow) -> None:
@@ -99,15 +99,15 @@ class PlaywrightExecutor:
                     f"Auth file not found: {auth_path}. "
                     f"Run 'python scripts/save_auth.py --name {workflow.auth} --url <url>' to create it."
                 )
-            self.logger.info(f"Loading auth session from {auth_path}")
+            self.logger.info(f"[PlaywrightExecutor] Loading authentication session from {auth_path}")
             self.context = self.browser.new_context(storage_state=str(auth_path))
         else:
-            self.logger.debug("Creating new browser context without auth")
+            self.logger.info("[PlaywrightExecutor] Creating browser context without authentication")
             self.context = self.browser.new_context()
 
         self.page = self.context.new_page()
         self.page.set_default_timeout(self.timeout)
-        self.logger.info("Browser context created successfully")
+        self.logger.info("[PlaywrightExecutor] Browser context created successfully")
     
     def close(self) -> None:
         """Close browser and cleanup resources"""
@@ -145,24 +145,20 @@ class PlaywrightExecutor:
             FileNotFoundError: If workflow.auth is set but the auth file does not exist
         """
         self._create_context(workflow)
-        self.logger.info(f"Executing workflow '{workflow.name}' with {len(workflow.steps)} steps")
+        self.logger.info(f"[PlaywrightExecutor] Executing workflow '{workflow.name}' with {len(workflow.steps)} steps")
         results = []
-        
         for idx, step in enumerate(workflow.steps):
             try:
                 self._validate_step(step)
-                
-                self.logger.debug(f"Executing step {idx + 1}: {step.action.value}")
+                self.logger.info(f"[PlaywrightExecutor] Executing step {idx + 1}: {step.action.value}")
                 result = self._execute_step(step)
                 results.append(result)
-                
                 if not result.success:
-                    self.logger.warning(f"Step {idx + 1} failed: {result.error}")
-            
+                    self.logger.warning(f"[PlaywrightExecutor] Step {idx + 1} failed: {result.error}")
             except Exception as e:
-                self.logger.error(f"Step {idx + 1} raised exception: {e}")
+                self.logger.error(f"[PlaywrightExecutor] Step {idx + 1} raised exception: {e}")
                 results.append(StepResult(success=False, error=str(e)))
-        
+        self.logger.info(f"[PlaywrightExecutor] Workflow execution finished")
         return results
     
     def _execute_step(self, step: Step) -> StepResult:
