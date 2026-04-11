@@ -51,14 +51,26 @@ class WorkflowLoader:
 
     def _resolve_workflow_path(self, workflow_name: str) -> Path:
         """
-        Returns the full path to the workflow YAML file in the templates directory
-        
-        Args:
-            workflow_name: Name of the workflow file, with or without .yaml extension
+        Returns the full path to the workflow YAML file.
+        Accepts:
+          - Absolute path
+          - Relative path
+          - Just the workflow name (resolved inside workflows_dir)
         """
-        if not workflow_name.endswith(".yaml"):
-            workflow_name += ".yaml"
-        return self.workflows_dir / workflow_name
+        wf_path = Path(workflow_name)
+        if not wf_path.suffix:
+            wf_path = wf_path.with_suffix(".yaml")
+
+        # If absolute or exists as given, use as is
+        if wf_path.is_absolute() or wf_path.exists():
+            return wf_path
+
+        # If relative and exists from CWD, use as is
+        if wf_path.exists():
+            return wf_path
+
+        # Otherwise, resolve inside workflows_dir
+        return self.workflows_dir / wf_path.name
     
     def _load_yaml(self, file_path: Path) -> Dict[str, Any]:
         """
