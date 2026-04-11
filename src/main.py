@@ -9,6 +9,8 @@ Exposes a single MCP tool `run_workflow` that:
 """
 
 import logging
+import sys
+import argparse
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
@@ -58,6 +60,34 @@ def _format_results(results: list) -> str:
 
 
 def main():
+    # If called with arguments, run as CLI
+    if len(sys.argv) > 1 and not sys.argv[1].startswith('-m'):  # crude check for CLI mode
+        parser = argparse.ArgumentParser(description="Run a workflow YAML with parameters.")
+        parser.add_argument("workflow", help="Path to the workflow YAML file")
+        parser.add_argument("--param", action="append", help="Placeholder values as key=value", default=[])
+        args, unknown = parser.parse_known_args()
+
+        # Parse params
+        params = {}
+        for pair in args.param:
+            if '=' not in pair:
+                print(f"Invalid param: {pair}. Use key=value format.")
+                sys.exit(1)
+            k, v = pair.split('=', 1)
+            params[k] = v
+
+        logger = logging.getLogger("webflow-mcp.cli")
+        logger.info(f"[CLI] Running workflow '{args.workflow}' with params: {params}")
+        loader = WorkflowLoader()
+        resolver = PlaceholderResolver()
+        workflow = loader.load_workflow(args.workflow)
+        resolved_workflow = resolver.resolve_workflow(workflow, params)
+        with PlaywrightExecutor() as executor:
+            results = executor.execute_workflow(resolved_workflow)
+        print(_format_results(results))
+        return
+
+    # Otherwise, run as MCP server
     mcp.run()
 
 
