@@ -9,10 +9,13 @@ Exposes a single MCP tool `run_workflow` that:
 """
 
 
+
 import logging
 import sys
 import argparse
 from typing import Any
+import os
+from dotenv import load_dotenv
 
 from mcp.server.fastmcp import FastMCP
 from src.workflow_loader import WorkflowLoader
@@ -66,11 +69,18 @@ def _format_results(results: list) -> str:
 
 def main():
     # If called with arguments, run as CLI
-    if len(sys.argv) > 1 and not sys.argv[1].startswith('-m'):  # crude check for CLI mode
+    if len(sys.argv) > 1 and not sys.argv[1].startswith('-m'):
         parser = argparse.ArgumentParser(description="Run a workflow YAML with parameters.")
         parser.add_argument("workflow", help="Path to the workflow YAML file")
         parser.add_argument("--param", action="append", help="Placeholder values as key=value", default=[])
+        parser.add_argument("--env", help="Path to .env file to load", default=None)
         args, unknown = parser.parse_known_args()
+
+        # Load .env if provided
+        if args.env:
+            if not os.path.exists(args.env):
+                raise FileNotFoundError(f".env file not found: {args.env}")
+            load_dotenv(args.env)
 
         # Parse params
         params = {}

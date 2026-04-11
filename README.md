@@ -173,6 +173,43 @@ Claude will call `run_workflow(name: "search_site", params: {"query": "webflow a
 - 🔄 Additional action types
 - 🔄 CI/CD integration examples
 
+## Environment Variables and Secrets (.env)
+
+You can use environment variable files (`.env`) to securely inject secrets (like usernames and passwords) into your workflows without writing them in the YAML or passing them on the command line.
+
+**How it works:**
+
+- You can have multiple `.env` files (e.g., `envs/.env.example`, `envs/.env.othersite`, etc.)
+- When running a workflow, pass the desired file with `--env`:
+  ```bash
+  python src/main.py workflows/example.yaml --env envs/.env.example
+  ```
+- Placeholders like `{{EXAMPLE_USER}}` and `{{EXAMPLE_PASS}}` are automatically resolved from the `.env` if not passed as a parameter.
+- If a parameter is passed via `--param`, it takes precedence over the `.env` value.
+- If the placeholder is not found in either, an error is raised.
+
+**Security warning:**
+- The `envs/` folder is in `.gitignore` and not committed to git, but `.env` files contain sensitive data. If you share the system, other local users could read them. Use best practices and delete `.env` files when not needed.
+
+**Example .env:**
+```
+EXAMPLE_USER=my user
+EXAMPLE_PASS=my password
+```
+
+**Example usage in workflow YAML:**
+```yaml
+steps:
+  - action: fill
+    selector: "#username"
+    value: "{{EXAMPLE_USER}}"
+  - action: fill
+    selector: "#password"
+    value: "{{EXAMPLE_PASS}}"
+```
+
+You can have as many `.env` files as you want and choose which to use for each run.
+
 ## Development
 
 ### Install Development Dependencies
@@ -332,6 +369,11 @@ python scripts/save_auth.py --url https://example.com --name mysite
 Once the browser opens, complete the login process (including any 2FA or OAuth steps). When finished, press Enter in the terminal. The session is saved automatically.
 
 > **Note:** Sessions saved this way include cookies and browser storage (localStorage, sessionStorage). They are site-specific and will expire when the site's session expires — typically days to weeks. Re-run `save_auth.py` when a session expires.
+
+> ⚠️ **Disclaimer:**
+> - Some websites (especially Google, Microsoft, and banking sites) actively detect browser automation and may block or invalidate sessions created with Playwright, even when using persistent profiles. Session persistence is not guaranteed for all sites.
+> - If you experience repeated logouts or detection, try using the latest Playwright version, avoid headless mode, and ensure your browser profile is not shared between manual and automated runs.
+> - This tool is intended for ethical automation of your own accounts or with explicit permission. Respect all terms of service and legal requirements.
 
 ### Using a Session in a Workflow
 

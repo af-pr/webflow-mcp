@@ -185,4 +185,4 @@ auth/*
 workflows/*
 output/*
 *.log
-.env
+envs/

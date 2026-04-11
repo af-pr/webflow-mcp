@@ -98,3 +98,26 @@ class TestPlaceholderResolver:
         assert resolved.steps[0].params["url"] == "https://notebooklm.com/nb/abc123"
         assert resolved.steps[1].params["value"] == "What is MCP?"
         assert resolved.steps[2].params["selector"] == "#submit"
+
+    def test_env_placeholder_resolution(self, resolver, monkeypatch):
+        monkeypatch.setenv("VV_USER", "envuser")
+        monkeypatch.setenv("VV_PASS", "envpass")
+        workflow = Workflow(
+            name="test_env",
+            steps=[
+                Step(ActionType.FILL, {"value": "{{VV_USER}}"}),
+                Step(ActionType.FILL, {"value": "User: {{VV_USER}}, Pass: {{VV_PASS}}"}),
+            ]
+        )
+        resolved = resolver.resolve_workflow(workflow, {})
+        assert resolved.steps[0].params["value"] == "envuser"
+        assert resolved.steps[1].params["value"] == "User: envuser, Pass: envpass"
+
+    def test_param_priority_over_env(self, resolver, monkeypatch):
+        monkeypatch.setenv("VV_USER", "envuser")
+        workflow = Workflow(
+            name="test_param_priority",
+            steps=[Step(ActionType.FILL, {"value": "{{VV_USER}}"})]
+        )
+        resolved = resolver.resolve_workflow(workflow, {"VV_USER": "paramuser"})
+        assert resolved.steps[0].params["value"] == "paramuser"

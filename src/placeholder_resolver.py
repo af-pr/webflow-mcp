@@ -7,6 +7,7 @@ steps by substituting them with actual runtime data.
 
 import logging
 import re
+import os
 from typing import List, Dict, Any
 
 from src.models import Step, Workflow
@@ -66,27 +67,26 @@ class PlaceholderResolver:
         data: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
-        Resolve placeholders in a parameters dictionary
+        Resolve placeholders in a parameters dictionary, using data and os.environ
         
         Args:
-            params: Parameters dictionary potentially containing placeholders
-            data: Dictionary with values to substitute
+            params: Dictionary of parameters that may contain placeholders
+            data: Dictionary mapping placeholder names to their values
         
         Returns:
             Dictionary with all placeholders resolved
         """
         result = {}
-        
+        pattern = re.compile(r"\{\{(\w+)\}\}")
         for key, value in params.items():
             if isinstance(value, str):
-                # Replace {{placeholder}} with values from data
-                for data_key, data_value in data.items():
-                    placeholder = f"{{{{{data_key}}}}}"
-                    if placeholder in value:
-                        value = value.replace(placeholder, str(data_value))
-            
+                matches = pattern.findall(value)
+                for match in matches:
+                    if match in data:
+                        value = value.replace(f"{{{{{match}}}}}", str(data[match]))
+                    elif match in os.environ:
+                        value = value.replace(f"{{{{{match}}}}}", os.environ[match])
             result[key] = value
-        
         return result
 
     @staticmethod
