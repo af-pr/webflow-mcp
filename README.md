@@ -210,62 +210,26 @@ steps:
 
 You can have as many `.env` files as you want and choose which to use for each run.
 
-## Development
-
-### Install Development Dependencies
-
-```bash
-pip install -e ".[dev]"
-```
-
-### Run Tests
-
-```bash
-pytest tests/
-```
-
-### Code Quality
-
-```bash
-black src/
-pylint src/
-```
-
 ## Supported Workflow Actions
 
 ### Action Parameters
 
-| Action                   | Required Parameters                |
-|--------------------------|------------------------------------|
-| goto                     | url                                |
-| fill                     | selector, value                    |
-| click                    | selector                           |
-| select                   | selector, value                    |
-| wait_for                 | selector                           |
-| wait_for_hidden          | selector                           |
-| wait_for_load_state      | state                              |
-| wait_for_response        | url_pattern                        |
-| press_key                | selector, key                      |
-| extract_text             | selector                           |
-| extract_inner_text       | selector                           |
-| extract_html             | selector                           |
-| extract_attribute_value  | selector, attribute                |
-| screenshot               | path                               |
-
-- `goto`: Navigate to a URL
-- `fill`: Fill form inputs
-- `click`: Click on elements
-- `select`: Select dropdown options
-- `wait_for`: Wait for element to appear in the DOM
-- `wait_for_hidden`: Wait for element to disappear from the DOM or become hidden
-- `wait_for_load_state`: Wait for page to reach a load state (`domcontentloaded`, `load`, `networkidle`)
-- `wait_for_response`: Wait for a network response matching a URL pattern
-- `press_key`: Press a keyboard key on an element
-- `extract_text`: Extract raw text content from elements (whitespace collapsed, no layout)
-- `extract_inner_text`: Extract text preserving layout (newlines for paragraphs, lists, blocks)
-- `extract_html`: Extract HTML from elements
-- `extract_attribute_value`: Extract the value of an attribute from an element (e.g., value of an input)
-- `screenshot`: Take a screenshot
+| Action                   | Required Parameters       | Description                                                                 |
+|--------------------------|---------------------------|-----------------------------------------------------------------------------|
+| goto                     | url                       | Navigate to a URL                                                           |
+| fill                     | selector, value           | Fill a form input                                                           |
+| click                    | selector                  | Click on an element                                                         |
+| select                   | selector, value           | Select a dropdown option                                                    |
+| wait_for                 | selector                  | Wait for an element to appear in the DOM                                    |
+| wait_for_hidden          | selector                  | Wait for an element to disappear from the DOM or become hidden              |
+| wait_for_load_state      | state                     | Wait for the page to reach a load state (`domcontentloaded`, `load`, `networkidle`) |
+| wait_for_response        | url_pattern               | Wait for a network response matching a URL pattern                          |
+| press_key                | selector, key             | Press a keyboard key on an element                                          |
+| extract_text             | selector                  | Extract raw text content (whitespace collapsed, hidden elements included)   |
+| extract_inner_text       | selector                  | Extract text preserving layout (newlines for blocks, hidden elements excluded) |
+| extract_html             | selector                  | Extract the inner HTML of an element                                        |
+| extract_attribute_value  | selector, attribute       | Extract the value of an attribute (e.g., `value`, `href`, `src`, `data-*`) |
+| screenshot               | path                      | Take a screenshot and save it to the specified path                         |
 
 ### `extract_text` vs `extract_inner_text`
 
@@ -362,18 +326,14 @@ Use webflow-mcp responsibly for:
 - Automating your own accounts and personal data
 - Services you own or operate
 - Internal, development, or testing purposes with explicit authorization
-- Services with explicit automation policies (e.g., those providing APIs)
-
-### Sessions and Credentials
-
-- Auth sessions saved by `save_auth.py` contain browser credentials (cookies, tokens)
-- **Never commit auth files to version control** — add `auth/` to `.gitignore`
-- Treat saved sessions as you would treat passwords and API keys
-- Sessions are site-specific and will expire according to the service's session policy
+- Services with explicit automation policies (e.g., those providing APIs allowing this use in ToS)
 
 ## Authentication
 
 Some workflows require an authenticated browser session (e.g. services that require login). webflow-mcp handles this via saved sessions — you log in once manually, and the session is reused for subsequent automated runs.
+
+> ⚠️ **Disclaimer:** This tool is intended for ethical automation of your own accounts or with explicit permission. Respect all terms of service and legal requirements.
+
 
 ### Saving a Session
 
@@ -386,14 +346,7 @@ python scripts/save_auth.py --url https://example.com --name mysite
 - `--url`: The page to navigate to for login
 - `--name`: Name for the saved session (e.g. `mysite` → saved as `auth/mysite.json`)
 
-Once the browser opens, complete the login process (including any 2FA or OAuth steps). When finished, press Enter in the terminal. The session is saved automatically.
-
-> **Note:** Sessions saved this way include cookies and browser storage (localStorage, sessionStorage). They are site-specific and will expire when the site's session expires — typically days to weeks. Re-run `save_auth.py` when a session expires.
-
-> ⚠️ **Disclaimer:**
-> - Some websites (especially Google, Microsoft, and banking sites) actively detect browser automation and may block or invalidate sessions created with Playwright, even when using persistent profiles. Session persistence is not guaranteed for all sites.
-> - If you experience repeated logouts or detection, try using the latest Playwright version, avoid headless mode, and ensure your browser profile is not shared between manual and automated runs.
-> - This tool is intended for ethical automation of your own accounts or with explicit permission. Respect all terms of service and legal requirements.
+Once the browser opens, complete the login process (including any 2FA or OAuth steps). When finished, press Enter in the terminal. The session is saved automatically. Sessions include cookies and browser storage and expire according to the service's session policy — typically days to weeks. Re-run `save_auth.py` when a session expires.
 
 ### Using a Session in a Workflow
 
@@ -409,28 +362,55 @@ steps:
 
 If the `auth` field is omitted, the workflow runs without authentication. If `auth` is set but the corresponding file does not exist, the workflow will fail with a `FileNotFoundError` — run `save_auth.py` first.
 
-> ⚠️ **Security:** Auth files contain sensitive session data (cookies). Do not commit `auth/` to version control. This folder is listed in `.gitignore`.
+> ⚠️ **Security:** Auth files contain sensitive session data (cookies). Never commit the `auth/` directory to version control — it is listed in `.gitignore`. Treat saved sessions as you would treat passwords and API keys.
 
 ## Known Limitations
 
+### Auth Persistence
+
+Persistent authentication (saved sessions) may not work reliably on all websites. Many modern sites use advanced anti-automation measures, multi-factor authentication, or non-standard login flows that can break session reuse or trigger forced logouts.
+
+- The current auth/session system is best-effort and may fail depending on the site.
+- If you experience repeated logouts or detection, try using the latest Playwright version and avoid headless mode.
+- This is a known limitation and **not a current development priority**.
+- Contributions and Pull Requests to improve persistent auth reliability are welcome!
+
 ### Anti-Bot Detection
 
-Many websites employ anti-bot detection mechanisms such as:
+Many websites employ anti-bot detection mechanisms:
 - **CAPTCHA / reCAPTCHA**: Requires manual interaction (not automated)
-- **Rate limiting**: May throttle or block requests if too many are made in short intervals
+- **Rate limiting**: May throttle or block rapid requests
 - **Browser fingerprinting**: May block headless browsers or detect automation
 - **JavaScript-heavy pages**: Content rendered dynamically may not be immediately available
 
 **Mitigation strategies:**
 - Use realistic delays between actions (`wait_for` before interactions)
-- Maintain authentic browser context with saved sessions (`auth_context_path`)
+- Maintain authentic browser context with saved sessions
 - Test workflows against target sites before production use
 - Keep browser automation libraries updated
 
-If your workflow encounters a CAPTCHA or is blocked by anti-bot measures, you may need to:
-1. Add manual resolution steps or use a CAPTCHA-solving service (beyond scope of this tool)
-2. Implement exponential backoff for retry logic
-3. Use rotating proxies or sessions for repeated access
+If your workflow encounters a CAPTCHA or is blocked by anti-bot measures, you may need to use a CAPTCHA-solving service, implement retry logic, or use rotating sessions (beyond the scope of this tool).
+
+## Development
+
+### Install Development Dependencies
+
+```bash
+pip install -e ".[dev]"
+```
+
+### Run Tests
+
+```bash
+pytest tests/
+```
+
+### Code Quality
+
+```bash
+black src/
+pylint src/
+```
 
 ## Contributing
 
